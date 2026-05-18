@@ -18,4 +18,9 @@
 - `O000007` — order=partially_cancelled, all lines fulfilled
 - `O000008` — order=shipped, line=cancelled
 
-## Problem 2 — refund plants (filled in by Task 7)
+## Problem 2 — refund plants
+
+- `O000015` — shopify partial-line refund: 1 of 3
+- `O009009` — internal_pos: order-level refund where line statuses still 'fulfilled' (cancel-vs-refund nuance)
+- `O005064` — shopify_stripe split-tender: $1789.05 = $894.52 card + $894.53 store_credit
+- `O007544` — shopify_stripe split-tender: $1902.85 = $951.42 card + $951.43 store_credit
