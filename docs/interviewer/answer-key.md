@@ -6,7 +6,7 @@
 
 - Reconciliation discrepancy in DATA-123 (gross of test orders): see ticket.
 - Reconciliation discrepancy excluding test orders: see ticket.
-- True reconciled non-test revenue: $0.00
+- True reconciled non-test revenue: $12,989,886.01
 
 ## Status mismatches (5–10 planted, design doc line 385)
 
