@@ -11,7 +11,7 @@ uv sync
 make setup
 ```
 
-`make setup` builds the DuckDB warehouse from the committed seed CSVs and runs dbt once. The seed CSVs and `DATA-123.md` are committed to the repo — you don't need to regenerate them.
+`make setup` builds the DuckDB warehouse from the committed seed CSVs and runs dbt once. The seed CSVs and `DATA-123.md` are committed to the repo — you don't need to regenerate them. Re-running `make setup` rebuilds the warehouse and re-renders `DATA-123.md` from the template, so don't edit that file directly if you want notes to persist.
 
 ## Daily commands
 
@@ -21,6 +21,7 @@ make full     # dbt run --full-refresh
 make test     # dbt test
 make lint     # sqlfluff lint
 make sql Q="select count(*) from main_orders_dw.order_fact"   # single-shot read-only query
+make clean    # remove warehouse.duckdb (rebuild with `make setup`)
 ```
 
 ## Where things live

@@ -418,19 +418,21 @@ Five primary dimensions, weighted roughly equally:
 - Did they identify `shipped_at` on `order_fact` as the architectural smell that enabled the bug? (Top-tier principal signal.)
 - Did their Problem 2 design name testable invariants — reconciliation, allocation, source-overlap?
 
-## Build TODO
+## Build checklist (✓ complete)
 
-- Build the seed generator (`setup/generate.py`) — emit CSVs, load to DuckDB, render `DATA-123.md` from template, log internal answer key
-- Build the SQL runner (`setup/sql.py`) — read-only, single-shot, agent-friendly
-- Build the dbt project — `dbt_project.yml`, `profiles.yml`, macros, models for both `orders/` and `merchants/` subprojects, mixed-quality YAML docs
-- Plant the trap in `order_fact.sql` with the realistic ~14-column shape, confident contractor comment, no TODO
-- Plant the warn-level reconciliation test
-- Plant cheap-tier boy scout opportunities: stale TODO on an unrelated model, commented source freshness, documentation gaps, lint nits on a non-`order_fact` file
-- Drop in adapted `.sqlfluff` config (DuckDB dialect)
-- Author `docs/designs/2024-Q3-orders-redesign.md` as the ambient design-first signal — convincing prior contractor design
-- Author PR template with "Design link" field
-- Author `CONTRIBUTING.md` with design-review reference
-- Author candidate-facing `README.md` (setup + framing)
-- Author interviewer-only stakeholder character brief as standalone doc
-- Dry-run with one or two internal engineers before going live
+Historical record of the build. Kept for reference; everything below is in the repo as of the last commit.
+
+- [x] Seed generator (`setup/generate.py`) — emits CSVs, loads to DuckDB, renders `DATA-123.md` from template, logs internal answer key
+- [x] SQL runner (`setup/sql.py`) — read-only, single-shot, agent-friendly
+- [x] dbt project — `dbt_project.yml`, `profiles.yml`, macros, models for both `orders/` and `merchants/` subprojects, mixed-quality YAML docs
+- [x] Planted trap in `order_fact.sql` with realistic ~14-column shape, confident contractor comment, no TODO
+- [x] Warn-level reconciliation test
+- [x] Cheap-tier boy scout opportunities: stale TODO on an unrelated model, commented source freshness, documentation gaps, lint nits on a non-`order_fact` file
+- [x] Adapted `.sqlfluff` config (DuckDB dialect)
+- [x] `docs/designs/2024-Q3-orders-redesign.md` — ambient design-first signal
+- [x] PR template with "Design link" field
+- [x] `CONTRIBUTING.md` with design-review reference
+- [x] Candidate-facing `README.md`
+- [x] Interviewer-only stakeholder character brief
+- [ ] Dry-run with one or two internal engineers before going live
 ```

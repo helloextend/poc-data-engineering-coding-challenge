@@ -1,36 +1,26 @@
 # Interviewer Run Sheet
 
-**Internal only — do not share with candidates.** This is the one doc you need to run a 60-minute Principal Data Engineer interview using this repo. Everything else is referenced below.
+**Internal only — do not share with candidates.** Use this *during* the live 60-minute Principal Data Engineer interview. Post-call PR grading lives in [`pr-grading-rubric.md`](./pr-grading-rubric.md).
+
+<!-- MAINTAINER NOTE: The reconciliation amount $12,989,886.01 is hardcoded in
+two places below — Jamie's Q&A row and the Problem 1 opening script. If you
+regenerate seeds (`make seed`), update both to match `answer-key.md`. -->
+
 
 ---
 
 ## Before the call (~10 min)
 
-1. **Build the warehouse from a clean state:**
+1. **Instruct the candidate to clone the repo and run setup:**
    ```bash
    uv sync
-   make clean && make setup
+   make setup
    ```
-   `make setup` builds DuckDB from the committed seed CSVs, runs dbt, and renders `DATA-123.md`. Re-run between candidates to reset.
-   
-   If you've intentionally changed the seed or generator and need to regenerate the committed CSVs, run `make seed` instead — it regenerates CSVs from `setup/generate.py` and rebuilds. Commit the diff.
+   Candidate runs this; you do not need to.
 
-2. **Confirm the planted bug surfaces:**
-   ```bash
-   make test
-   ```
-   Expect a **warn** on `order_fact_revenue_reconciliation`. If it errors or passes silently, something regressed — stop and investigate before going live.
+2. **Re-read** [`stakeholder-brief-jamie.md`](./stakeholder-brief-jamie.md) for posture. The Jamie quote table below is the in-call cheat sheet.
 
-3. **Read the candidate's ticket** as it was rendered just now:
-   ```bash
-   cat DATA-123.md
-   ```
-   Note the reported reconciliation discrepancy values. Jamie reports those numbers; the candidate's job is to find the true number (**$12,989,886.01**, gross of test orders excluded).
-
-4. **Skim, in this order:**
-   - [`stakeholder-brief-jamie.md`](./stakeholder-brief-jamie.md) — Jamie's posture, sample Q&A. **Re-read sample exchanges right before the call.**
-   - [`answer-key.md`](./answer-key.md) — exact numbers, planted status mismatches, refund plants.
-   - [`technical-interview-design.md`](./technical-interview-design.md) — full design rationale. Section pointers below.
+3. **Onboarding (one-time):** read [`technical-interview-design.md`](./technical-interview-design.md) and [`pr-grading-rubric.md`](./pr-grading-rubric.md) once.
 
 ---
 
@@ -39,141 +29,85 @@
 | Minutes | Phase | Notes |
 |---|---|---|
 | 0–5 | Setup & orient | Candidate reads `README.md` and `DATA-123.md`. Don't fill silence. |
-| 5–30 | Problem 1 (grain bug) | Expected ~15 min for strong candidates; 25-min ceiling is "struggling against the floor." |
-| 30–55 | Problem 2 (refunds) | The asymmetric budget is deliberate — Problem 2 is the design problem and needs room to breathe. |
+| 5–30 | Problem 1 (grain bug) | ~15 min for strong candidates; 25 min = "struggling against the floor." |
+| 30–55 | Problem 2 (refunds) | Asymmetric budget is deliberate — P2 is the design problem. |
 | 55–60 | Wrap + candidate Qs | Hard stop. |
 
-**Sequencing rationale:** Problem 1 sets a code-shipping rhythm; Problem 2 deliberately breaks that rhythm. Whether the candidate notices the shape change *is* part of the test. See design doc § Sequencing for the full argument.
+P1 sets a code-shipping rhythm; P2 deliberately breaks it. **Whether the candidate notices the shape change is itself the test.**
 
 ---
 
 ## Jamie (in-character stakeholder)
 
-- **Default posture: silent.** Respond when asked, do not volunteer. Reflexively reaching for the stakeholder is itself a discriminator — wanting to ask, not asking, is a fail mode you want to observe.
-- **Do not lead** to the bug, to "write a design doc", or to the ambient signals. If the candidate asks whether a design doc is expected, you can confirm yes and point to `docs/designs/2024-Q3-orders-redesign.md` as a template — but only if they ask.
-- **Out-of-scope deflections** (always valid): tax, shipping refunds beyond "net of shipping", the unloaded Stripe payment export, any merchant outside the seeded set.
+- **Default posture: silent.** Respond when asked, do not volunteer.
+- **Do not lead** to the bug, to "write a design doc", or to ambient signals.
+- **Out-of-scope deflections:** tax, shipping refunds beyond "net of shipping", the unloaded Stripe payment export, any merchant outside the seeded set.
 
-Sample exchanges and the full character brief: [`stakeholder-brief-jamie.md`](./stakeholder-brief-jamie.md).
+**If asked, respond verbatim (or close to it):**
 
----
-
-## Problem 1 — the grain bug (gatekeeper)
-
-**Where:** `models/orders/dw/order_fact.sql`
-**Nature:** Revenue is computed by `qualify`-ing at the wrong grain. The `shipped_at` column being on an *order*-grain fact is the architectural smell that *enabled* the bug.
-**True answer:** non-test revenue = **$12,989,886.01**.
-
-**Verification commands you'll want at hand:**
-```bash
-make test                                                  # reconciliation warn → should pass after fix
-make sql Q="select sum(revenue) from main_orders_dw.order_fact where not coalesce(is_test, false)"
-```
-
-**Three valid fix shapes (ranked):**
-
-| Tier | What it looks like |
+| Candidate asks | Jamie says |
 |---|---|
-| **Principal** | Recognizes `shipped_at` doesn't belong on an order-grain fact at all. Proposes shipment metadata moves to a `shipment_fact`; `order_fact` carries only derivations (e.g., `first_shipped_at = min(shipped_at)`). |
-| **Senior** | Separates CTEs: one `order_revenue` from line items (no shipments), one `order_first_ship` from shipments. Joins cleanly. Concerns separated without explicitly naming the architectural smell. |
-| **Acceptable** | Keeps contractor's structure; replaces qualify with `sum(...) over (partition by order_id)`. Surgical one-line fix. |
-
-**Flag in notes:**
-- Did they run `dbt test` *before* touching code, or dive into editing?
-- Did they investigate the warn-level test or shrug at it?
-- Did they escalate the warn-level test to `error` after the fix? (Meta-discriminator on test-severity hygiene.)
-- Did they write a **row-level parity** regression test (per-order revenue == sum of its line items), or just re-rely on the aggregate test?
-- Did they identify the `shipped_at`-on-order-fact architectural smell? **(Top-tier principal signal.)**
-
-**Boy-scout opportunities planted around the code** (bonus only — no penalty for missing): stale TODOs, commented-out source freshness, sqlfluff nits on non-`order_fact` files, undocumented columns.
-
-Full Problem 1 design + entry ramps: design doc lines 57–219.
+| *"What do you mean by net revenue?"* | "Good question. Gross of tax, but net of refunds. I'm honestly not sure on shipping refunds — proceed assuming net of shipping for now." |
+| *"Should store-credit refunds reduce revenue?"* | "Hmm. I'd want them tracked separately so we can see both views, but for the headline number — exclude them. Cash refunds only." |
+| *"How do we handle the merchant on internal POS where we don't have line-level data?"* | "Honest answer? I don't know yet. What are the options?" |
+| *"Do we have payment data to reconcile original tender against refund tender?"* | "Yes, but it's in a separate Stripe export we haven't loaded yet — out of scope for this iteration." |
+| *"What's the expected reconciliation number?"* (P1) | "My captures show \$12,989,886.01 for real merchants in the relevant period." |
+| *"Is a design doc expected?"* | "Yeah, this team usually does design review before non-trivial work hits prod. There's a doc Sandra wrote in Q3 (`docs/designs/2024-Q3-orders-redesign.md`) that's a good template." |
 
 ---
 
-## Problem 2 — refunds across messy sources (design problem)
+## Problem 1 — the grain bug
 
-**The framing line you give the candidate:** *"At the end, walk us through what you'd bring to the finance analytics team for sign-off before this hits prod."* This phrasing is **deliberately neutral on format** — code, design doc, whiteboard, slack message are all valid. **Do not** say "write a design doc" — that collapses the test.
+**Opening script (verbatim, after candidate has read `README.md` and `DATA-123.md`):**
 
-**The three allocation concerns the candidate should decompose:**
-1. **Line-level allocation** — when a refund hits at order grain but lines exist, how do you allocate? (pro-rata-by-revenue? equal split? leave as order-grain?)
-2. **Tender allocation** — split-tender refunds (cash + store credit). Does store credit reduce revenue? (Jamie's answer when asked: exclude store-credit refunds from headline revenue, but track separately.)
-3. **Source overlap / dedup** — same logical refund could appear across `shopify_refunds`, `stripe_refunds`, and the internal POS sources. Reconciliation primitives needed.
+> *"Q1 live revenue from real merchants is coming in below our Stripe captures of ~\$12,989,886.01. Can you take a look at `order_fact`?"*
 
-**Planted refund nuances (cross-check candidate's work against these):**
+Then stop. Do not say where the bug is. Do not mention `dbt test`.
 
-| Order ID | Pattern | Notes |
-|---|---|---|
-| `O000015` | Shopify partial-line refund | 1 of 3 lines refunded |
-| `O009009` | `internal_pos` order-level refund | Line statuses still `'fulfilled'` — cancel-vs-refund nuance |
-| `O005064` | `shopify_stripe` split-tender | $1789.05 = $894.52 card + $894.53 store_credit |
-| `O007544` | `shopify_stripe` split-tender | $1902.85 = $951.42 card + $951.43 store_credit |
+**Cross-check data:**
+- Bug location: `models/orders/dw/order_fact.sql` — revenue computed by `qualify`-ing at the wrong grain.
+- True non-test revenue after fix: see [`answer-key.md`](./answer-key.md).
+- Verify with: `make sql Q="select sum(revenue) from main_orders_dw.order_fact where not coalesce(is_test, false)"`
+- Reconciliation test passing (was warn): `make test`
 
-Status mismatches (separate from refunds, but reachable via the same audit lens): see [`answer-key.md`](./answer-key.md) — orders `O000001`–`O000008` have planted order-status / line-status conflicts.
-
-**What "passing" looks like:**
-- Recognizes Problem 2 is a different shape than Problem 1.
-- Asks Jamie at least one substantive question before writing code.
-- Decomposes into the three allocation concerns above.
-- Produces an artifact tailored to a finance audience with basic data-modeling vocabulary.
-- If they ship code, they ship **one clean slice** (e.g., a `refund_fact` from Shopify only) with the rest as documented TODOs.
-
-**Flag in notes:**
-- **Mode-switching:** did they recognize the shape change and adjust, or keep shipping reflexively?
-- Did they propose a `refund_fact` as its own model rather than dumping columns onto `order_fact`?
-- Did their design name **testable invariants** — reconciliation, allocation, source-overlap?
-
-Full Problem 2 design + "how we make the right answer available without making it obvious": design doc lines 220–303.
+**Watch for (jot in notes for post-call rubric):**
+- Did they run `dbt test` before editing, or dive in?
+- What did they do with the warn-level test? (Investigated / shrugged / escalated to error.)
+- Did they write a row-level parity regression test?
+- Did they identify the `shipped_at`-on-order-fact architectural smell? *(Top-tier principal signal.)*
 
 ---
 
-## Rubric — five dimensions
+## Problem 2 — refunds across messy sources
 
-Equally weighted. **Implementation correctness is necessary but not sufficient.**
+**Opening script (verbatim, transitioning from P1):**
 
-1. **AI-prompting maturity** — does the candidate orchestrate the AI's investigation (explore → explain → act → verify), or type `fix this` and watch? This is the load-bearing signal.
-2. **Asks vs assumes** — questions to Jamie, questions to clarify undocumented columns, vs reflexive assumption-making. AI tools always assume — the candidate's job is to override that.
-3. **Mode-switching** — Problem 2 has a different shape; do they notice?
-4. **Modeling judgment** — clean diagnosis of the grain bug + architectural smell (P1); decomposition of allocation concerns + `refund_fact` proposal (P2).
-5. **Scoping judgment** — punts thoughtfully with documented open questions, vs ships the wrong thing confidently. Clean slice into prod-shape > muddles through everything.
+> *"Okay, let's move on. Finance needs net revenue. Your task is to bring refunds into the warehouse and surface refund totals on `order_fact` and per-line refund amounts on `order_line_fact`. They want to be able to reconcile against Stripe settlement reports. Jamie from finance analytics is available on Slack if you have questions."*
 
-**Bonus (no penalty for missing):** boy-scout finds — stale TODOs, commented source freshness, sqlfluff nits, undocumented columns.
+Then stop. Do not add context. Do not say "write a design doc." Do not say "this one's more open-ended." Silence is load-bearing.
 
-Full rubric + discriminators: design doc lines 399–419.
+**Closing deliverable ask (~5 min left, or when they're wrapping up):**
 
----
+> *"Before we close out — walk us through what you'd bring to the finance analytics team for sign-off before this hits prod."*
 
-## Ambient signals (testing AI-prompting maturity)
+**Deliberately format-neutral** — code, design doc, whiteboard, slack message all valid. **Do not** say "write a design doc" — that collapses the test.
 
-These are committed artifacts that say "people who work here write designs" without saying so. A weak candidate types `fix this`; a strong candidate prompts `explore the codebase, understand conventions and prior designs, then propose an approach` — and the AI surfaces these.
+**Cross-check data:** Cross-check candidate's work against the planted refund cases in [`answer-key.md`](./answer-key.md). Patterns to verify: Shopify partial-line refund, internal_pos order-level refund (line statuses still 'fulfilled'), shopify_stripe split-tender (card + store_credit).
 
-- `docs/designs/2024-Q3-orders-redesign.md` — prior contractor design doc
-- `CONTRIBUTING.md` — references design review
-- `.github/PULL_REQUEST_TEMPLATE.md` — has a "Design link" field
-- `.sqlfluff` — DuckDB-dialect lint config
-- Mixed-quality column docs across `models/*.yml`
+Status mismatches in the `O000001`–`O000008` range are planted separately (order/line status conflicts) — see [`answer-key.md`](./answer-key.md) for the canonical list. Bonus if the candidate surfaces them.
 
-**What to watch:** did the candidate's AI surface these without being told to? That's the AI-fluency signal.
+**Watch for (jot in notes for post-call rubric):**
+- **Mode-switching:** recognized the shape change, or kept shipping reflexively?
+- Did they ask Jamie a substantive question before writing code?
+- Did they decompose into line / tender / source allocation concerns?
 
 ---
 
-## Calibration (after the interview)
+## After the call
 
-Jot down before context fades:
-- Did the candidate message Jamie at all? When? Highest-quality question they asked?
-- Which fix tier did they reach on Problem 1?
-- Did they mode-switch on Problem 2 or stay in shipping mode?
-- Top discriminator hit / missed?
-- Did any of your responses (especially as Jamie) nudge them off-frame? Calibrate next time.
+**Ask the candidate to open a PR with their changes.** Then:
 
----
+1. Fill in [`section-b-notes-template.md`](./section-b-notes-template.md) while context is fresh — focus on Section B of [`pr-grading-rubric.md`](./pr-grading-rubric.md): AI-prompting maturity, asks-vs-assumes, mode-switching. Specific quotes/moments are gold.
+2. Hand the PR + your notes + [`pr-grading-rubric.md`](./pr-grading-rubric.md) to a grading agent for a 1–5 score per criterion and hire recommendation.
+3. Calibrate: did any of your responses (especially as Jamie) nudge them off-frame? Note for next time.
 
-## Pointers index
-
-| File | What it is | When to use |
-|---|---|---|
-| [`stakeholder-brief-jamie.md`](./stakeholder-brief-jamie.md) | Jamie's character, posture, sample Q&A | Re-read 5 min before the call |
-| [`answer-key.md`](./answer-key.md) | Canonical numbers, planted facts | Cross-check candidate's work |
-| [`technical-interview-design.md`](./technical-interview-design.md) | Full design rationale (435 lines) | Read once during onboarding; reference by section |
-| [`../designs/2024-Q3-orders-redesign.md`](../designs/2024-Q3-orders-redesign.md) | Ambient signal — prior team design doc | Point candidates to *only* if asked about design process |
-| [`../../README.md`](../../README.md) | Candidate-facing repo README | This is what the candidate reads first |
-| [`../../DATA-123.md`](../../DATA-123.md) | Candidate-facing ticket (generated) | Regenerated each `make setup` |

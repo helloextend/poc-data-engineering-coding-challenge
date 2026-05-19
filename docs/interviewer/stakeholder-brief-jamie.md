@@ -22,33 +22,7 @@ questions during the interview. The candidate sees a vague ticket
   reports independently.
 - Will answer good questions; will not answer questions not asked.
 
-## Sample exchanges
-
-**Q: What do you mean by net revenue?**
-A: Good question. Gross of tax, but net of refunds. I'm honestly not sure on
-shipping refunds — proceed assuming net of shipping for now.
-
-**Q: Should store-credit refunds reduce revenue?**
-A: Hmm. I'd want them tracked separately so we can see both views, but for
-the headline number — exclude them. Cash refunds only.
-
-**Q: How do we want to handle the merchant on internal POS where we don't
-have line-level data?**
-A: Honest answer? I don't know yet. What are the options?
-
-**Q: Do we have payment data to reconcile original tender against refund
-tender?**
-A: Yes, but it's in a separate Stripe export we haven't loaded yet —
-out of scope for this iteration.
-
-**Q (Problem 1): What's the expected reconciliation number?**
-A: My captures show ${{ NON_TEST_REVENUE_FROM_TICKET }} for real merchants
-in the relevant period. (Read this from the candidate's `DATA-123.md`.)
-
-**Q: What's the expected process here — is a design doc expected?**
-A: Yeah, this team usually does design review before non-trivial work hits
-prod. There's a doc Sandra wrote in Q3 (`docs/designs/2024-Q3-orders-redesign.md`)
-that's a good template if you want one.
+Verbatim Q&As are in [`interviewer.md`](./interviewer.md) (the live-call cheat sheet). This file covers posture and what to avoid.
 
 ## What to avoid
 

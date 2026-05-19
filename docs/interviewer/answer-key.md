@@ -8,7 +8,7 @@
 - Reconciliation discrepancy excluding test orders: see ticket.
 - True reconciled non-test revenue: $12,989,886.01
 
-## Status mismatches (5–10 planted, design doc line 385)
+## Status mismatches (5–10 planted, see design doc § "Seed data")
 
 - `O000001` — order=shipped, line=cancelled
 - `O000002` — order=partially_cancelled, all lines fulfilled
