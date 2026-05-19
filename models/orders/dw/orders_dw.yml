@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: order_fact
-    description: One row per order with revenue and shipment metadata.
+    description: One row per order with revenue, refund, and shipment metadata.
     columns:
       - name: order_id
         description: Primary key.
@@ -25,13 +25,31 @@ models:
       - name: total_quantity
       - name: revenue
         description: '{{ doc("order_fact_revenue") }}'
+      - name: refund_amount
+        description: |
+          Total refunded for this order in dollars, deduped across Shopify,
+          Stripe, and internal POS. Includes all tenders (card, store credit,
+          POS). For per-event detail see refund_fact.
+      - name: cash_refund_amount
+        description: |
+          Portion of `refund_amount` that reduces revenue — excludes store
+          credit (Decision #3: store credit is a deferred liability). Equals
+          `refund_amount - store_credit_issued`.
+      - name: store_credit_issued
+        description: |
+          Portion of `refund_amount` issued as store credit. Tracked as a
+          deferred liability — does NOT reduce net_revenue at issuance.
+          Will offset future-order revenue when redemption data lands
+          (follow-up; see refunds presentation).
+      - name: net_revenue
+        description: |
+          `revenue - cash_refund_amount`. Bucket by `ordered_at` for time-
+          series views (Decision #5: refunds attribute back to order date).
       - name: created_at_dwh
       - name: updated_at_dwh
 
   - name: order_line_fact
-    description: |
-      Skeleton — one row per order line. Will be extended with refund allocations
-      in DATA-456 (Problem 2 / refunds work).
+    description: One row per order line with line revenue, line-level refund, and net.
     columns:
       - name: line_item_id
         tests:
@@ -42,3 +60,85 @@ models:
       - name: quantity
       - name: unit_price
       - name: line_revenue
+      - name: cash_refund_amount
+        description: |
+          Portion of cash refunds (not store credit) attributed to this
+          line. Direct from Shopify when source had `line_item_id`; pro-rata
+          by line revenue otherwise (Decision #4).
+      - name: net_line_revenue
+        description: '`line_revenue - cash_refund_amount`.'
+
+  - name: refund_fact
+    description: |
+      One row per canonical refund event, deduped across Shopify, Stripe,
+      and internal POS. Event identity = (order_id, refunded_at).
+    columns:
+      - name: refund_event_id
+        description: Primary key. md5(order_id || refunded_at).
+        tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: FK to order_fact.
+        tests:
+          - not_null
+      - name: refunded_at
+        description: |
+          Event timestamp. For Stripe rows this is `processed_at`; for
+          Shopify and POS, `refunded_at`. Used as the join key for cross-
+          source dedup.
+      - name: refund_amount
+        description: |
+          Canonical total refunded for this event in dollars. Precedence
+          when same event recorded in multiple sources (Decision #1):
+          shopify > stripe > internal_pos.
+      - name: canonical_source
+        description: Which source provided `refund_amount`.
+      - name: source_systems
+        description: Comma-separated list of all sources that recorded this event.
+      - name: has_line_attribution
+        description: TRUE when Shopify recorded line-level detail for this event.
+      - name: stripe_settled_amount
+        description: |
+          Sum of Stripe rows where `tender_type='card'` for this event.
+          Use this column for Stripe settlement reconciliation
+          (Decision #2 — card only).
+      - name: store_credit_amount
+        description: |
+          Sum of Stripe rows where `tender_type='store_credit'` for this
+          event. Aggregates up to `order_fact.store_credit_issued`.
+      - name: cash_refund_amount
+        description: |
+          `refund_amount - store_credit_amount`. The portion that reduces
+          net revenue.
+      - name: created_at_dwh
+      - name: updated_at_dwh
+
+  - name: refund_line_fact
+    description: |
+      One row per (refund_event, line_item). Direct from Shopify when source
+      had `line_item_id`; pro-rata by line revenue otherwise (Decision #4).
+    columns:
+      - name: refund_event_id
+        description: FK to refund_fact.
+        tests:
+          - not_null
+      - name: order_id
+        tests:
+          - not_null
+      - name: line_item_id
+        description: FK to order_line_fact.
+        tests:
+          - not_null
+      - name: refunded_at
+      - name: canonical_source
+      - name: refund_amount
+        description: Allocated refund amount for this (event, line).
+      - name: cash_refund_amount
+        description: |
+          Line's share of the event's cash refund. Scales by the event-level
+          cash-vs-store-credit ratio.
+      - name: store_credit_amount
+        description: Line's share of the event's store credit refund.
+      - name: created_at_dwh
+      - name: updated_at_dwh

@@ -3,6 +3,12 @@
     unique_key='order_id'
 ) }}
 
+-- Note on refund columns: refunds usually post AFTER ordered_at, so in
+-- incremental mode the refund_* / net_revenue columns on already-loaded
+-- rows can go stale. Run `make full` periodically (or switch to a refund-
+-- aware incremental strategy) to keep the denormalized refund totals in
+-- sync. The canonical refund data always lives in refund_fact.
+
 WITH order_revenue AS (
     -- Revenue at the order grain comes from line items, per the
     -- `order_fact_revenue` doc: sum(quantity * unit_price), gross of
@@ -25,6 +31,16 @@ WITH order_revenue AS (
     GROUP BY order_id
 )
 
+, order_refunds AS (
+    SELECT
+        order_id
+        , sum(refund_amount) AS refund_amount
+        , sum(cash_refund_amount) AS cash_refund_amount
+        , sum(store_credit_amount) AS store_credit_issued
+    FROM {{ ref('refund_fact') }}
+    GROUP BY order_id
+)
+
 , enriched AS (
     SELECT
         o.order_id
@@ -41,11 +57,17 @@ WITH order_revenue AS (
         , r.line_count
         , r.total_quantity
         , r.revenue
+        , coalesce(rf.refund_amount, 0) AS refund_amount
+        , coalesce(rf.cash_refund_amount, 0) AS cash_refund_amount
+        , coalesce(rf.store_credit_issued, 0) AS store_credit_issued
+        , r.revenue - coalesce(rf.cash_refund_amount, 0) AS net_revenue
     FROM {{ ref('stg_orders') }} AS o
     LEFT JOIN order_revenue AS r
         ON o.order_id = r.order_id
     LEFT JOIN order_shipments AS s
         ON o.order_id = s.order_id
+    LEFT JOIN order_refunds AS rf
+        ON o.order_id = rf.order_id
     LEFT JOIN {{ ref('lkp_merchants') }} AS m
         ON o.merchant_id = m.merchant_id
 )
@@ -65,6 +87,10 @@ SELECT
     , line_count
     , total_quantity
     , revenue
+    , refund_amount
+    , cash_refund_amount
+    , store_credit_issued
+    , net_revenue
     , current_timestamp AS created_at_dwh
     , current_timestamp AS updated_at_dwh
 FROM enriched
