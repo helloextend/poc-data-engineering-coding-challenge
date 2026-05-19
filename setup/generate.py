@@ -9,6 +9,7 @@ Run via `make setup` (which also runs dbt full-refresh after this).
 
 from __future__ import annotations
 
+import argparse
 import csv
 import random
 from dataclasses import dataclass
@@ -46,7 +47,7 @@ def write_csv(name: str, header: list[str], rows: list[list]) -> None:
     RAW_DIR.mkdir(exist_ok=True)
     path = RAW_DIR / f"{name}.csv"
     with path.open("w", newline="") as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator="\n")
         w.writerow(header)
         w.writerows(rows)
 
@@ -511,6 +512,45 @@ def _try_write_interviewer_key(
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--build-only",
+        action="store_true",
+        help="Skip CSV regeneration; build DuckDB and render ticket from existing raw/*.csv.",
+    )
+    args = parser.parse_args()
+
+    if args.build_only:
+        missing = [
+            name for name in (
+                "merchants", "products",
+                "orders", "line_items", "shipments", "shipment_line_items",
+                "refunds_shopify", "refunds_stripe", "refunds_internal_pos",
+            ) if not (RAW_DIR / f"{name}.csv").exists()
+        ]
+        if missing:
+            raise FileNotFoundError(
+                f"--build-only requires existing raw/*.csv; missing: {missing}. "
+                f"Run `make seed` to regenerate."
+            )
+
+        print("build-only mode: skipped CSV regeneration")
+        print("loading DuckDB warehouse...")
+        load_duckdb()
+
+        con = duckdb.connect(str(DB_PATH), read_only=True)
+        try:
+            total_all, total_non_test = compute_reconciliation_amount(con)
+        finally:
+            con.close()
+
+        print(f"reconciliation: total ${total_all:,.2f} | non-test ${total_non_test:,.2f}")
+
+        render_ticket(total_non_test)
+        # Skip answer-key regen: committed answer-key.md is in sync with committed CSVs.
+        print("done.")
+        return
+
     rng = random.Random(SEED)
     fake = Faker()
     Faker.seed(SEED)

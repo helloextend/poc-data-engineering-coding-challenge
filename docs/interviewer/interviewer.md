@@ -11,7 +11,9 @@
    uv sync
    make clean && make setup
    ```
-   `make setup` generates seed CSVs, builds DuckDB, runs dbt, and renders `DATA-123.md`. Re-run between candidates to reset.
+   `make setup` builds DuckDB from the committed seed CSVs, runs dbt, and renders `DATA-123.md`. Re-run between candidates to reset.
+   
+   If you've intentionally changed the seed or generator and need to regenerate the committed CSVs, run `make seed` instead — it regenerates CSVs from `setup/generate.py` and rebuilds. Commit the diff.
 
 2. **Confirm the planted bug surfaces:**
    ```bash

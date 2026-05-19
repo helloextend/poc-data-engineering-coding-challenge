@@ -11,7 +11,7 @@ uv sync
 make setup
 ```
 
-`make setup` generates seed CSVs, builds the DuckDB warehouse, runs dbt once, and renders the ticket file (`DATA-123.md`).
+`make setup` builds the DuckDB warehouse from the committed seed CSVs and runs dbt once. The seed CSVs and `DATA-123.md` are committed to the repo — you don't need to regenerate them.
 
 ## Daily commands
 

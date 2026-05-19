@@ -3,8 +3,7 @@ __pycache__/
 *.pyc
 .venv/
 
-# Generated data + warehouse
-raw/
+# Generated warehouse (rebuild via `make setup`)
 warehouse.duckdb
 warehouse.duckdb.wal
 
@@ -13,9 +12,6 @@ target/
 dbt_packages/
 logs/
 .user.yml
-
-# Generated ticket (template is committed; rendered file is not)
-DATA-123.md
 
 # Interview build plans + scratch — never ships with the candidate repo
 docs/superpowers/
