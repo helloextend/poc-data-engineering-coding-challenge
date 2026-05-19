@@ -8,7 +8,7 @@
 ## Tests
 
 - Every fact gets `unique` + `not_null` on its primary key.
-- Aggregate reconciliation tests are useful but **brittle**. Prefer row-level parity tests for grain bugs.
+- Aggregate reconciliation tests are useful but coarse — they tell you something is wrong, not where. Prefer row-level invariants where practical.
 - A failing test should fail loudly. `severity: warn` is for noisy upstream conditions, not for "we know this is broken."
 
 ## Design review

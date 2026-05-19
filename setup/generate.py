@@ -331,8 +331,8 @@ def gen_refunds(rng: random.Random, plans: list[RefundPlan],
 ]:
     """Generate refunds across 3 sources. Returns (shopify, stripe, internal_pos, notable_log).
 
-    notable_log entries are (order_id, code, payload) — opaque tokens; the
-    human-readable mapping lives in the interviewer-only renderer."""
+    notable_log entries are (order_id, code, payload) — opaque tokens consumed
+    by the optional dev-artifact renderer."""
     by_merchant: dict[str, list[Order]] = {}
     for o in orders:
         # is_test is "" (NULL) | "true" | "false" — treat anything except "true" as non-test
@@ -489,21 +489,20 @@ def render_ticket(non_test_amount: float) -> None:
     TICKET_PATH.write_text(body)
 
 
-def _try_write_interviewer_key(
+def _try_write_dev_artifacts(
     mismatch_log: list[tuple[str, str]],
     refund_log: list[tuple[str, str, dict]],
     reconciliation_amount: float,
 ) -> None:
-    """Dynamically invoke the interviewer-only renderer when it ships with the
-    repo. The handoff workflow removes `docs/interviewer/` before sending the
-    repo to a candidate, so this no-ops cleanly on the candidate's machine."""
+    """Optional dev-artifact renderer. Dynamically loads a sibling module if
+    present and no-ops when absent."""
     import importlib.util
 
     module_path = ROOT / "docs" / "interviewer" / "_answer_key.py"
     out_path = ROOT / "docs" / "interviewer" / "answer-key.md"
     if not module_path.exists():
         return
-    spec = importlib.util.spec_from_file_location("_interviewer_answer_key", module_path)
+    spec = importlib.util.spec_from_file_location("_dev_artifacts", module_path)
     if spec is None or spec.loader is None:
         return
     module = importlib.util.module_from_spec(spec)
@@ -547,7 +546,7 @@ def main() -> None:
         print(f"reconciliation: total ${total_all:,.2f} | non-test ${total_non_test:,.2f}")
 
         render_ticket(total_non_test)
-        # Skip answer-key regen: committed answer-key.md is in sync with committed CSVs.
+        # Skip dev-artifact regen in build-only mode.
         print("done.")
         return
 
@@ -669,7 +668,7 @@ def main() -> None:
     print(f"reconciliation: total ${total_all:,.2f} | non-test ${total_non_test:,.2f}")
 
     render_ticket(total_non_test)
-    _try_write_interviewer_key(mismatch_log, refund_log, total_non_test)
+    _try_write_dev_artifacts(mismatch_log, refund_log, total_non_test)
 
     print("done.")
 

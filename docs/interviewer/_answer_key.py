@@ -46,7 +46,7 @@ def write_answer_key(
         "- Reconciliation discrepancy excluding test orders: see ticket.",
         f"- True reconciled non-test revenue: ${reconciliation_amount:,.2f}",
         "",
-        "## Status mismatches (5–10 planted, design doc line 385)",
+        f"## Status mismatches ({len(mismatch_log)} planted)",
         "",
     ]
     for oid, code in mismatch_log:
