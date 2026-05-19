@@ -3,86 +3,51 @@
     unique_key='order_id'
 ) }}
 
-WITH shipment_lines AS (
-    SELECT
-        sl.shipment_id
-        , sl.line_item_id
-        , sl.quantity_shipped
-        , li.unit_price
-    FROM {{ ref('stg_shipment_line_items') }} AS sl
-    INNER JOIN {{ ref('stg_line_items') }} AS li
-        ON sl.line_item_id = li.line_item_id
-)
-
-, joined AS (
-    SELECT
-        o.order_id
-        , o.merchant_id
-        , o.customer_id
-        , o.order_status
-        , o.is_test
-        , o.ordered_at
-        , o.paid_at
-        , s.shipment_id
-        , s.shipped_at
-        , sl.line_item_id
-        , sl.quantity_shipped
-        , sl.unit_price
-    FROM {{ ref('stg_orders') }} AS o
-    LEFT JOIN {{ ref('stg_shipments') }} AS s
-        ON o.order_id = s.order_id
-    LEFT JOIN shipment_lines AS sl
-        ON s.shipment_id = sl.shipment_id
-)
-
-, shipment_totals AS (
-    -- aggregated to one row per (order, shipment)
+WITH order_revenue AS (
+    -- Revenue at the order grain comes from line items, per the
+    -- `order_fact_revenue` doc: sum(quantity * unit_price), gross of
+    -- refunds. Includes orders that have not shipped yet.
     SELECT
         order_id
-        , merchant_id
-        , customer_id
-        , order_status
-        , is_test
-        , ordered_at
-        , paid_at
-        , shipment_id
-        , shipped_at
-        , count(DISTINCT line_item_id) AS line_count
-        , sum(quantity_shipped) AS total_quantity
-        , sum(quantity_shipped * unit_price) AS shipment_revenue
-    FROM joined
-    GROUP BY order_id, merchant_id, customer_id, order_status, is_test, ordered_at, paid_at, shipment_id, shipped_at
+        , count(1) AS line_count
+        , sum(quantity) AS total_quantity
+        , sum(quantity * unit_price) AS revenue
+    FROM {{ ref('stg_line_items') }}
+    GROUP BY order_id
 )
 
-, shipment_counts AS (
+, order_shipments AS (
     SELECT
         order_id
         , count(DISTINCT shipment_id) AS shipment_count
-    FROM shipment_totals
+        , min(shipped_at) AS shipped_at
+    FROM {{ ref('stg_shipments') }}
     GROUP BY order_id
 )
 
 , enriched AS (
     SELECT
-        st.order_id
-        , st.merchant_id
+        o.order_id
+        , o.merchant_id
         , m.merchant_name
-        , st.customer_id
+        , o.customer_id
         , m.customer_type
-        , st.order_status
-        , st.is_test
-        , st.ordered_at
-        , st.paid_at
-        , st.shipped_at
-        , sc.shipment_count
-        , st.line_count
-        , st.total_quantity
-        , st.shipment_revenue AS revenue
-    FROM shipment_totals AS st
+        , o.order_status
+        , o.is_test
+        , o.ordered_at
+        , o.paid_at
+        , s.shipped_at
+        , coalesce(s.shipment_count, 0) AS shipment_count
+        , r.line_count
+        , r.total_quantity
+        , r.revenue
+    FROM {{ ref('stg_orders') }} AS o
+    LEFT JOIN order_revenue AS r
+        ON o.order_id = r.order_id
+    LEFT JOIN order_shipments AS s
+        ON o.order_id = s.order_id
     LEFT JOIN {{ ref('lkp_merchants') }} AS m
-        ON st.merchant_id = m.merchant_id
-    LEFT JOIN shipment_counts AS sc
-        ON st.order_id = sc.order_id
+        ON o.merchant_id = m.merchant_id
 )
 
 SELECT
@@ -106,5 +71,3 @@ FROM enriched
 {% if is_incremental() %}
     WHERE ordered_at >= {{ get_incremental_value('updated_at_dwh') }}
 {% endif %}
--- dedupe to one row per order (orders can have multiple shipments)
-QUALIFY row_number() OVER (PARTITION BY order_id ORDER BY shipped_at) = 1
