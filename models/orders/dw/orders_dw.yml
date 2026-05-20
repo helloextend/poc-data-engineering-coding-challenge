@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: order_fact
-    description: One row per order with revenue and shipment metadata.
+    description: One row per order with revenue, refund aggregates, and shipment metadata.
     columns:
       - name: order_id
         description: Primary key.
@@ -25,13 +25,25 @@ models:
       - name: total_quantity
       - name: revenue
         description: '{{ doc("order_fact_revenue") }}'
+      - name: refund_total
+        description: Sum of refund_fact.refund_amount for this order, in dollars. Zero when no refunds.
+        tests:
+          - not_null
+      - name: refund_count
+        description: Distinct count of source_refund_id (logical refund events) for this order.
+        tests:
+          - not_null
+      - name: last_refunded_at
+        description: Max refunded_at across refunds for this order. NULL when no refunds.
+      - name: net_revenue
+        description: revenue minus refund_total. Can be negative on goodwill / overpayments.
+      - name: is_fully_refunded
+        description: TRUE when refund_total >= revenue and revenue > 0.
       - name: created_at_dwh
       - name: updated_at_dwh
 
   - name: order_line_fact
-    description: |
-      Skeleton — one row per order line. Will be extended with refund allocations
-      in DATA-456 (Problem 2 / refunds work).
+    description: One row per order line. Carries line-level refund attribution (direct or pro-rata allocated).
     columns:
       - name: line_item_id
         tests:
@@ -42,3 +54,54 @@ models:
       - name: quantity
       - name: unit_price
       - name: line_revenue
+      - name: qty_refunded
+        description: Quantity refunded (Shopify line-grain only; NULL for pro-rata allocated lines).
+      - name: refund_amount
+        description: Dollar refund attributed to this line — direct from Shopify or pro-rata allocated.
+      - name: refund_allocation_method
+        description: One of `direct`, `pro_rata`, `mixed`, `none`. See refunds design doc §3.4.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['direct', 'pro_rata', 'mixed', 'none']
+      - name: net_line_revenue
+        description: line_revenue minus refund_amount.
+      - name: last_refunded_at
+        description: Max refunded_at on the line's order (denormalized for incremental watermark).
+      - name: created_at_dwh
+      - name: updated_at_dwh
+
+  - name: refund_fact
+    description: One row per refund event at order × line × source grain. See docs/designs/2026-Q2-refunds-modeling.md.
+    columns:
+      - name: refund_event_id
+        description: Surrogate PK — md5(source, source_refund_id, coalesce(line_item_id, 'ORDER')).
+        tests:
+          - unique
+          - not_null
+      - name: source
+        description: One of `shopify`, `stripe`, `internal_pos`.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['shopify', 'stripe', 'internal_pos']
+      - name: source_refund_id
+        description: The source system's own refund_id (kept for traceability).
+        tests:
+          - not_null
+      - name: order_id
+        tests:
+          - not_null
+      - name: line_item_id
+        description: NULL for POS and Stripe-direct refunds (order-grain only).
+      - name: qty_refunded
+        description: Shopify-only; NULL otherwise.
+      - name: refund_amount
+        description: Dollar amount of the refund event.
+        tests:
+          - not_null
+      - name: refunded_at
+        tests:
+          - not_null
+      - name: created_at_dwh
+      - name: updated_at_dwh
