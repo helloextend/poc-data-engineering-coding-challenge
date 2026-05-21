@@ -24,6 +24,12 @@ make sql Q="select count(*) from main_orders_dw.order_fact"   # single-shot read
 make clean    # remove warehouse.duckdb (rebuild with `make setup`)
 ```
 
+For an interactive REPL against the warehouse, install the DuckDB CLI separately (e.g. `brew install duckdb`) and open it read-only:
+
+```bash
+duckdb -readonly warehouse.duckdb
+```
+
 ## Where things live
 
 - `DATA-123.md` — your ticket. Read this first.
