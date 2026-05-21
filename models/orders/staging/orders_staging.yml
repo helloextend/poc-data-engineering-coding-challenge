@@ -49,3 +49,44 @@ models:
 
   # stg_shipment_line_items — bare (undocumented)
   - name: stg_shipment_line_items
+
+  - name: stg_refunds
+    description: |
+      Unified, deduped refund staging. See docs/designs/2026-Q2-refunds-modeling.md §3.3
+      for the Shopify ↔ Stripe dedup heuristic.
+    columns:
+      - name: refund_event_id
+        description: Surrogate PK derived from (source, source_refund_id, line_item_id).
+        tests:
+          - unique
+          - not_null
+      - name: source
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['shopify', 'stripe', 'internal_pos']
+      - name: order_id
+        tests:
+          - not_null
+      - name: refund_amount
+        tests:
+          - not_null
+      - name: refunded_at
+        tests:
+          - not_null
+
+  - name: stg_refund_tenders
+    description: Stripe tender-split sidecar. Joins to stg_refunds on (order_id, refunded_at_minute).
+    columns:
+      - name: source_refund_id
+        tests:
+          - not_null
+      - name: order_id
+        tests:
+          - not_null
+      - name: tender_type
+        tests:
+          - not_null
+      - name: tender_amount
+        tests:
+          - not_null
