@@ -1,11 +1,11 @@
-# DATA-123 — Q1 2026 revenue reconciliation off by ~$X
+# DATA-123 — Q1 revenue reconciliation off by ~$X
 
 **Reporter:** Jamie (finance analytics)
 **Assignee:** you
 
 Hi —
 
-Q1 2026 live revenue from real merchants is coming in below what our Stripe captures
+Q1 live revenue from real merchants is coming in below what our Stripe captures
 report by a meaningful margin. Our captures show **$12,989,886.01**
 of revenue from real merchants in the relevant period; `order_fact.revenue`
 is summing to less than that.
