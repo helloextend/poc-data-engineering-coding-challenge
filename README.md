@@ -4,7 +4,7 @@ You've inherited this repo from a contractor. Finance is asking questions about 
 
 ## Setup (do this BEFORE the interview)
 
-Required: Python 3.11+, `uv` (https://docs.astral.sh/uv/getting-started/installation/), `make`, `git`.
+Required: Python 3.11 or 3.12 (dbt doesn't yet support 3.13+; `uv` will auto-fetch 3.12 via `.python-version` if you don't have it), `uv` (https://docs.astral.sh/uv/getting-started/installation/), `make`, `git`.
 
 ```bash
 uv sync
