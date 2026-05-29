@@ -1,4 +1,4 @@
-{{ config(severity='warn') }}
+{{ config(severity='error') }}
 
 -- Reconciles total order_fact.revenue against summed line items for non-test orders.
 -- Returns rows when the discrepancy exceeds $1 — that is, when something is broken.
