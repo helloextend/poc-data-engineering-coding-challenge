@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: order_fact
-    description: One row per order with revenue and shipment metadata.
+    description: One row per order with revenue, refund, and shipment metadata.
     columns:
       - name: order_id
         description: Primary key.
@@ -25,13 +25,23 @@ models:
       - name: total_quantity
       - name: revenue
         description: '{{ doc("order_fact_revenue") }}'
+      - name: cancelled_revenue
+        description: '{{ doc("order_fact_cancelled_revenue") }}'
+      - name: refund_amount_shopify
+        description: Payment refunds from Shopify, in dollars.
+      - name: refund_amount_stripe
+        description: Payment refunds from Stripe, in dollars.
+      - name: refund_amount_internal_pos
+        description: Payment refunds from internal POS, in dollars.
+      - name: refund_amount
+        description: '{{ doc("order_fact_refund_amount") }}'
+      - name: net_revenue
+        description: '{{ doc("order_fact_net_revenue") }}'
       - name: created_at_dwh
       - name: updated_at_dwh
 
   - name: order_line_fact
-    description: |
-      Skeleton — one row per order line. Will be extended with refund allocations
-      in DATA-456 (Problem 2 / refunds work).
+    description: One row per order line with revenue and refund allocations.
     columns:
       - name: line_item_id
         tests:
@@ -41,4 +51,18 @@ models:
       - name: product_id
       - name: quantity
       - name: unit_price
+      - name: line_status
+        description: One of `pending`, `fulfilled`, `cancelled`, `refunded`.
       - name: line_revenue
+      - name: cancelled_revenue
+        description: '{{ doc("order_fact_cancelled_revenue") }}'
+      - name: refund_amount_shopify
+        description: Line-level Shopify refunds, in dollars.
+      - name: refund_amount_stripe
+        description: Order-level Stripe refunds allocated by line revenue share.
+      - name: refund_amount_internal_pos
+        description: Order-level POS refunds allocated by line revenue share.
+      - name: refund_amount
+        description: '{{ doc("order_fact_refund_amount") }}'
+      - name: net_revenue
+        description: '{{ doc("order_fact_net_revenue") }}'

@@ -49,3 +49,42 @@ models:
 
   # stg_shipment_line_items — bare (undocumented)
   - name: stg_shipment_line_items
+
+  - name: stg_refunds_shopify
+    description: Line-level refunds from Shopify.
+    columns:
+      - name: refund_id
+        tests:
+          - unique
+          - not_null
+      - name: order_id
+      - name: line_item_id
+      - name: qty_refunded
+      - name: refund_amount
+        description: Refund amount in dollars.
+      - name: refunded_at
+
+  - name: stg_refunds_stripe
+    description: Order-level refunds from Stripe.
+    columns:
+      - name: refund_id
+        tests:
+          - unique
+          - not_null
+      - name: order_id
+      - name: tender_type
+      - name: refund_amount
+        description: Refund amount in dollars.
+      - name: refunded_at
+
+  - name: stg_refunds_internal_pos
+    description: Order-level refunds from internal POS.
+    columns:
+      - name: refund_id
+        tests:
+          - unique
+          - not_null
+      - name: order_id
+      - name: refund_amount
+        description: Refund amount in dollars.
+      - name: refunded_at
