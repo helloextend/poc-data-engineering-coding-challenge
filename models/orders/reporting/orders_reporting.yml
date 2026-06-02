@@ -1,0 +1,6 @@
+version: 2
+
+models:
+  - name: daily_revenue
+    description: Daily revenue rollup from order_fact.
+
