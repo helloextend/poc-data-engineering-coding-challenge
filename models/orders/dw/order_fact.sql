@@ -49,9 +49,16 @@ WITH shipment_lines AS (
         , shipped_at
         , count(DISTINCT line_item_id) AS line_count
         , sum(quantity_shipped) AS total_quantity
-        , sum(quantity_shipped * unit_price) AS shipment_revenue
     FROM joined
     GROUP BY order_id, merchant_id, customer_id, order_status, is_test, ordered_at, paid_at, shipment_id, shipped_at
+)
+
+, order_revenue AS (
+    SELECT
+        li.order_id
+        , sum(li.quantity * li.unit_price) AS revenue
+    FROM {{ ref('stg_line_items') }} AS li
+    GROUP BY li.order_id
 )
 
 , shipment_counts AS (
@@ -77,8 +84,10 @@ WITH shipment_lines AS (
         , sc.shipment_count
         , st.line_count
         , st.total_quantity
-        , st.shipment_revenue AS revenue
+        , ol.revenue
     FROM shipment_totals AS st
+    LEFT JOIN order_revenue AS ol
+        ON st.order_id = ol.order_id
     LEFT JOIN {{ ref('lkp_merchants') }} AS m
         ON st.merchant_id = m.merchant_id
     LEFT JOIN shipment_counts AS sc
